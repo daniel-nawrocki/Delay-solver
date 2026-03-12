@@ -270,12 +270,6 @@ button:active {
   box-shadow: inset 0 0 0 1px rgba(15, 126, 115, 0.2);
 }
 
-.toolkit-btn-toggle:not(.active) {
-  border-color: #cbd5e1;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  color: #475569;
-}
-
 .toolkit-btn span {
   line-height: 1;
 }

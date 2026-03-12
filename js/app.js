@@ -67,7 +67,6 @@ const els = {
   gridToggle: document.getElementById("gridToggle"),
   relationshipVisibilityToggle: document.getElementById("relationshipVisibilityToggle"),
   relationshipVisibilityToggleSecondary: document.getElementById("relationshipVisibilityToggleSecondary"),
-  relationshipToolbarToggleBtn: document.getElementById("relationshipToolbarToggleBtn"),
   fitViewBtn: document.getElementById("fitViewBtn"),
   coordViewSelect: document.getElementById("coordViewSelect"),
   rotateLeftBtn: document.getElementById("rotateLeftBtn"),
@@ -231,10 +230,6 @@ function syncRelationshipVisibilityUi() {
   els.relationshipVisibilityToggle.checked = state.ui.showRelationships;
   if (els.relationshipVisibilityToggleSecondary) {
     els.relationshipVisibilityToggleSecondary.checked = state.ui.showRelationships;
-  }
-  if (els.relationshipToolbarToggleBtn) {
-    els.relationshipToolbarToggleBtn.classList.toggle("active", state.ui.showRelationships);
-    els.relationshipToolbarToggleBtn.querySelector("span").textContent = state.ui.showRelationships ? "Arrows On" : "Arrows Off";
   }
 }
 
@@ -491,14 +486,6 @@ els.relationshipVisibilityToggle.addEventListener("change", () => {
 if (els.relationshipVisibilityToggleSecondary) {
   els.relationshipVisibilityToggleSecondary.addEventListener("change", () => {
     state.ui.showRelationships = els.relationshipVisibilityToggleSecondary.checked;
-    syncRelationshipVisibilityUi();
-    renderer.render();
-  });
-}
-
-if (els.relationshipToolbarToggleBtn) {
-  els.relationshipToolbarToggleBtn.addEventListener("click", () => {
-    state.ui.showRelationships = !state.ui.showRelationships;
     syncRelationshipVisibilityUi();
     renderer.render();
   });
