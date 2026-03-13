@@ -24,10 +24,17 @@ function maxHolesInWindow(times, windowMs = 8) {
   return maxCount;
 }
 
-function edgeDelay(edge, holeDelay, rowDelay) {
-  if (edge.type === "offset") return Number(edge.offsetMs) || 0;
+function edgeDelay(edge, holeDelay, rowDelay, offsetAssignments) {
+  if (edge.type === "offset") return offsetAssignments.get(edge.id) ?? 17;
   if (edge.type === "rowToRow") return (edge.sign === -1 ? -1 : 1) * rowDelay;
   return (edge.sign === -1 ? -1 : 1) * holeDelay;
+}
+
+function offsetRangeValues(edge) {
+  const fallback = Number.isFinite(Number(edge.offsetMs)) ? Number(edge.offsetMs) : null;
+  const min = Number.isFinite(Number(edge.minOffsetMs)) ? Number(edge.minOffsetMs) : fallback ?? 17;
+  const max = Number.isFinite(Number(edge.maxOffsetMs)) ? Number(edge.maxOffsetMs) : fallback ?? 42;
+  return generateValues(Math.min(min, max), Math.max(min, max), 26);
 }
 
 function buildGraphState(state) {
@@ -74,7 +81,7 @@ export function validateTimingGraph(state) {
   return graph;
 }
 
-function buildSchedule(state, graph, holeDelay, rowDelay) {
+function buildSchedule(state, graph, holeDelay, rowDelay, offsetAssignments = new Map()) {
   const holeTimes = new Map([[graph.originHoleId, 0]]);
   const queue = [graph.originHoleId];
   const epsilon = 0.0001;
@@ -83,7 +90,7 @@ function buildSchedule(state, graph, holeDelay, rowDelay) {
     const holeId = queue.shift();
     const baseTime = holeTimes.get(holeId);
     for (const edge of graph.adjacency.get(holeId) || []) {
-      const nextTime = baseTime + edgeDelay(edge, holeDelay, rowDelay);
+      const nextTime = baseTime + edgeDelay(edge, holeDelay, rowDelay, offsetAssignments);
       const existing = holeTimes.get(edge.toHoleId);
       if (existing === undefined) {
         holeTimes.set(edge.toHoleId, nextTime);
@@ -113,6 +120,7 @@ function buildSchedule(state, graph, holeDelay, rowDelay) {
     valid: true,
     holeDelay,
     rowDelay,
+    offsetAssignments: new Map(offsetAssignments),
     holeTimes,
     times,
     endTime,
@@ -126,12 +134,28 @@ export function solveTimingCombinations(state) {
 
   const holeValues = generateValues(state.timing.holeToHole.min, state.timing.holeToHole.max);
   const rowValues = generateValues(state.timing.rowToRow.min, state.timing.rowToRow.max);
+  const offsetEdges = graph.edges.filter((edge) => edge.type === "offset");
   const candidates = [];
+
+  function exploreOffsets(index, offsetAssignments, holeDelay, rowDelay) {
+    if (index >= offsetEdges.length) {
+      const schedule = buildSchedule(state, graph, holeDelay, rowDelay, offsetAssignments);
+      if (schedule.valid) candidates.push(schedule);
+      return;
+    }
+
+    const edge = offsetEdges[index];
+    const values = offsetRangeValues(edge);
+    values.forEach((value) => {
+      const nextAssignments = new Map(offsetAssignments);
+      nextAssignments.set(edge.id, value);
+      exploreOffsets(index + 1, nextAssignments, holeDelay, rowDelay);
+    });
+  }
 
   holeValues.forEach((holeDelay) => {
     rowValues.forEach((rowDelay) => {
-      const schedule = buildSchedule(state, graph, holeDelay, rowDelay);
-      if (schedule.valid) candidates.push(schedule);
+      exploreOffsets(0, new Map(), holeDelay, rowDelay);
     });
   });
 
@@ -145,5 +169,8 @@ export function solveTimingCombinations(state) {
 }
 
 export function formatTimingResult(result, index) {
-  return `${index + 1}. H2H ${result.holeDelay}ms | R2R ${result.rowDelay}ms | peak in 8ms: ${result.density8ms} holes | total duration: ${result.endTime.toFixed(1)}ms`;
+  const offsetSummary = result.offsetAssignments?.size
+    ? ` | offsets: ${[...result.offsetAssignments.values()].join(",")}ms`
+    : "";
+  return `${index + 1}. H2H ${result.holeDelay}ms | R2R ${result.rowDelay}ms${offsetSummary} | peak in 8ms: ${result.density8ms} holes | total duration: ${result.endTime.toFixed(1)}ms`;
 }

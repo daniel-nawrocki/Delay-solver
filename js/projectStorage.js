@@ -3,7 +3,6 @@ export function saveProject(state) {
     holes: state.holes,
     rows: state.rows,
     timing: state.timing,
-    initiation: state.initiation,
     centerPull: state.centerPull,
   };
 
@@ -26,7 +25,6 @@ export function hydrateStateFromProject(state, project) {
   state.holesById = new Map(state.holes.map((h) => [h.id, h]));
   state.rows = project.rows || {};
   state.timing = project.timing || state.timing;
-  state.initiation = project.initiation || { paths: [], activePathId: null };
   state.centerPull = project.centerPull || state.centerPull;
   state.selection = new Set();
 }

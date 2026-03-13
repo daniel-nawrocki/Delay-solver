@@ -1,7 +1,6 @@
 import { parseCsvText, buildHolesFromMapping } from "./csvParser.js";
 import { DiagramRenderer } from "./diagramRenderer.js";
 import { initTimingControls } from "./timingControls.js";
-import { addHoleToActivePath, clearPaths } from "./initiationTools.js";
 import { solveTimingCombinations, formatTimingResult, validateTimingGraph } from "./timingSolver.js";
 import { exportTimingPdfFromCanvas } from "./pdfExport.js";
 import {
@@ -47,7 +46,6 @@ const state = {
     holeToHole: { min: 16, max: 34 },
     rowToRow: { min: 84, max: 142 },
   },
-  initiation: { paths: [], activePathId: null },
   relationships: { originHoleId: null, edges: [], nextId: 1 },
   csvCache: null,
   timingResults: [],
@@ -79,7 +77,6 @@ const els = {
   clearRelationshipsBtn: document.getElementById("clearRelationshipsBtn"),
   clearOriginBtn: document.getElementById("clearOriginBtn"),
   relationshipList: document.getElementById("relationshipList"),
-  clearPathsBtn: document.getElementById("clearPathsBtn"),
   holeDelayMin: document.getElementById("holeDelayMinInput"),
   holeDelayMax: document.getElementById("holeDelayMaxInput"),
   rowDelayMin: document.getElementById("rowDelayMinInput"),
@@ -93,7 +90,6 @@ const els = {
   rowRelationPositiveToolBtn: document.getElementById("rowRelationPositiveToolBtn"),
   rowRelationNegativeToolBtn: document.getElementById("rowRelationNegativeToolBtn"),
   offsetRelationToolBtn: document.getElementById("offsetRelationToolBtn"),
-  initiationToolBtn: document.getElementById("initiationToolBtn"),
 };
 
 const renderer = new DiagramRenderer(document.getElementById("diagramCanvas"), {
@@ -262,7 +258,6 @@ function applyImportedHoles(holes) {
   holes.forEach((hole) => normalizeHoleCoordinateSets(hole));
   state.holes = holes;
   state.selection = new Set();
-  state.initiation = { paths: [], activePathId: null };
   state.ui.coordView = "collar";
   state.ui.relationshipDraft = null;
   rebuildHolesById();
@@ -281,20 +276,27 @@ function setToolMode(mode) {
   els.rowRelationPositiveToolBtn.classList.toggle("active", mode === "rowRelationshipPositive");
   els.rowRelationNegativeToolBtn.classList.toggle("active", mode === "rowRelationshipNegative");
   els.offsetRelationToolBtn.classList.toggle("active", mode === "offsetRelationship");
-  els.initiationToolBtn.classList.toggle("active", mode === "initiation");
   renderer.render();
 }
 
 function promptRelationshipConfig(type, existing = null) {
   if (type === "offset") {
-    const input = window.prompt("Enter fixed offset in milliseconds. Negative values are allowed.", String(existing?.offsetMs ?? 0));
-    if (input === null) return null;
-    const offsetMs = Number(input);
-    if (!Number.isFinite(offsetMs)) {
-      window.alert("Enter a valid numeric offset.");
+    const defaultMin = existing?.minOffsetMs ?? existing?.offsetMs ?? 17;
+    const defaultMax = existing?.maxOffsetMs ?? existing?.offsetMs ?? 42;
+    const minInput = window.prompt("Enter minimum offset in milliseconds.", String(defaultMin));
+    if (minInput === null) return null;
+    const maxInput = window.prompt("Enter maximum offset in milliseconds.", String(defaultMax));
+    if (maxInput === null) return null;
+    const minOffsetMs = Number(minInput);
+    const maxOffsetMs = Number(maxInput);
+    if (!Number.isFinite(minOffsetMs) || !Number.isFinite(maxOffsetMs)) {
+      window.alert("Enter valid numeric minimum and maximum offsets.");
       return null;
     }
-    return { offsetMs };
+    return {
+      minOffsetMs: Math.min(minOffsetMs, maxOffsetMs),
+      maxOffsetMs: Math.max(minOffsetMs, maxOffsetMs),
+    };
   }
 
   const input = window.prompt("Enter relationship sign: + or -", existing?.sign === -1 ? "-" : "+");
@@ -352,12 +354,6 @@ function handleHoleClick(hole, event) {
     return;
   }
 
-  if (state.ui.toolMode === "initiation") {
-    addHoleToActivePath(state, hole.id);
-    renderer.render();
-    return;
-  }
-
   const relationshipType = TOOL_TO_RELATIONSHIP_TYPE[state.ui.toolMode];
   if (relationshipType) {
     if (!state.ui.relationshipDraft?.holeIds?.length) {
@@ -388,7 +384,6 @@ function handleHoleHover(hole) {
 }
 
 function handlePointerUp(payload) {
-  if (state.ui.toolMode === "initiation") return;
   const draft = state.ui.relationshipDraft;
   if (!draft?.holeIds?.length) return;
 
@@ -505,13 +500,6 @@ els.holeRelationNegativeToolBtn.addEventListener("click", () => setToolMode("hol
 els.rowRelationPositiveToolBtn.addEventListener("click", () => setToolMode("rowRelationshipPositive"));
 els.rowRelationNegativeToolBtn.addEventListener("click", () => setToolMode("rowRelationshipNegative"));
 els.offsetRelationToolBtn.addEventListener("click", () => setToolMode("offsetRelationship"));
-els.initiationToolBtn.addEventListener("click", () => setToolMode("initiation"));
-
-els.clearPathsBtn.addEventListener("click", () => {
-  clearPaths(state);
-  renderer.render();
-});
-
 els.clearRelationshipsBtn.addEventListener("click", () => {
   state.relationships.edges = [];
   state.ui.relationshipDraft = null;
@@ -566,13 +554,10 @@ els.timingResults.addEventListener("click", (event) => {
 els.exportPdfBtn.addEventListener("click", () => {
   const selectedTiming = state.timingResults[state.ui.activeTimingPreviewIndex] || null;
   const previousShowGrid = state.ui.showGrid;
-  const previousShowOverlayText = state.ui.showOverlayText;
   state.ui.showGrid = false;
-  state.ui.showOverlayText = false;
   renderer.render();
   exportTimingPdfFromCanvas({ canvas: renderer.canvas, selectedTiming });
   state.ui.showGrid = previousShowGrid;
-  state.ui.showOverlayText = previousShowOverlayText;
   renderer.render();
 });
 

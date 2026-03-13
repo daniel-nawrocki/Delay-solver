@@ -23,6 +23,17 @@ export function ensureRelationshipState(state) {
     state.relationships = { originHoleId: null, edges: [], nextId: 1 };
   }
   if (!Array.isArray(state.relationships.edges)) state.relationships.edges = [];
+  state.relationships.edges = state.relationships.edges.map((edge) => {
+    if (edge?.type !== "offset") return edge;
+    const fallback = Number.isFinite(Number(edge.offsetMs)) ? Number(edge.offsetMs) : null;
+    const minOffsetMs = Number.isFinite(Number(edge.minOffsetMs)) ? Number(edge.minOffsetMs) : fallback ?? 17;
+    const maxOffsetMs = Number.isFinite(Number(edge.maxOffsetMs)) ? Number(edge.maxOffsetMs) : fallback ?? 42;
+    return {
+      ...edge,
+      minOffsetMs: Math.min(minOffsetMs, maxOffsetMs),
+      maxOffsetMs: Math.max(minOffsetMs, maxOffsetMs),
+    };
+  });
   if (!Number.isFinite(Number(state.relationships.nextId)) || Number(state.relationships.nextId) < 1) {
     state.relationships.nextId = 1;
   }
@@ -43,13 +54,24 @@ export function setOriginHole(state, holeId) {
 
 export function addRelationship(state, input) {
   const relationships = ensureRelationshipState(state);
+  const minOffsetMs = Number.isFinite(Number(input.minOffsetMs))
+    ? Number(input.minOffsetMs)
+    : Number.isFinite(Number(input.offsetMs))
+      ? Number(input.offsetMs)
+      : 17;
+  const maxOffsetMs = Number.isFinite(Number(input.maxOffsetMs))
+    ? Number(input.maxOffsetMs)
+    : Number.isFinite(Number(input.offsetMs))
+      ? Number(input.offsetMs)
+      : 42;
   const edge = {
     id: `rel-${relationships.nextId++}`,
     type: input.type,
     fromHoleId: input.fromHoleId,
     toHoleId: input.toHoleId,
     sign: input.sign ?? 1,
-    offsetMs: Number(input.offsetMs) || 0,
+    minOffsetMs: Math.min(minOffsetMs, maxOffsetMs),
+    maxOffsetMs: Math.max(minOffsetMs, maxOffsetMs),
   };
   relationships.edges.push(edge);
   return edge;
@@ -61,7 +83,19 @@ export function updateRelationship(state, relationshipId, patch) {
   if (!edge) return null;
   Object.assign(edge, patch);
   edge.sign = edge.sign === -1 ? -1 : 1;
-  edge.offsetMs = Number(edge.offsetMs) || 0;
+  const minOffsetMs = Number.isFinite(Number(edge.minOffsetMs))
+    ? Number(edge.minOffsetMs)
+    : Number.isFinite(Number(edge.offsetMs))
+      ? Number(edge.offsetMs)
+      : 17;
+  const maxOffsetMs = Number.isFinite(Number(edge.maxOffsetMs))
+    ? Number(edge.maxOffsetMs)
+    : Number.isFinite(Number(edge.offsetMs))
+      ? Number(edge.offsetMs)
+      : 42;
+  edge.minOffsetMs = Math.min(minOffsetMs, maxOffsetMs);
+  edge.maxOffsetMs = Math.max(minOffsetMs, maxOffsetMs);
+  delete edge.offsetMs;
   return edge;
 }
 
@@ -74,8 +108,17 @@ export function describeRelationship(edge, holesById) {
   const fromLabel = holesById.get(edge.fromHoleId)?.holeNumber || holesById.get(edge.fromHoleId)?.id || edge.fromHoleId;
   const toLabel = holesById.get(edge.toHoleId)?.holeNumber || holesById.get(edge.toHoleId)?.id || edge.toHoleId;
   if (edge.type === "offset") {
-    const signText = edge.offsetMs >= 0 ? "+" : "";
-    return `${relationshipLabel(edge.type)}: ${fromLabel} -> ${toLabel} (${signText}${edge.offsetMs} ms)`;
+    const minOffsetMs = Number.isFinite(Number(edge.minOffsetMs))
+      ? Number(edge.minOffsetMs)
+      : Number.isFinite(Number(edge.offsetMs))
+        ? Number(edge.offsetMs)
+        : 17;
+    const maxOffsetMs = Number.isFinite(Number(edge.maxOffsetMs))
+      ? Number(edge.maxOffsetMs)
+      : Number.isFinite(Number(edge.offsetMs))
+        ? Number(edge.offsetMs)
+        : 42;
+    return `${relationshipLabel(edge.type)}: ${fromLabel} -> ${toLabel} (${Math.min(minOffsetMs, maxOffsetMs)}-${Math.max(minOffsetMs, maxOffsetMs)} ms)`;
   }
   const signText = edge.sign === -1 ? "-" : "+";
   return `${relationshipLabel(edge.type)}: ${fromLabel} -> ${toLabel} (${signText})`;
@@ -95,8 +138,6 @@ export function relationToolLabel(mode) {
       return "Row-to-Row -";
     case "offsetRelationship":
       return "Offset";
-    case "initiation":
-      return "Initiation";
     default:
       return "Select";
   }

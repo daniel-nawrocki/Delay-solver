@@ -209,26 +209,6 @@ export class DiagramRenderer {
     this.ctx.restore();
   }
 
-  drawInitiationLines() {
-    for (const path of this.stateRef.initiation.paths) {
-      if (!path.holeIds || path.holeIds.length < 2) continue;
-      this.ctx.save();
-      this.ctx.strokeStyle = path.direction === "reverse" ? "#b91c1c" : "#0b8f6d";
-      this.ctx.lineWidth = 2;
-      this.ctx.setLineDash([7, 5]);
-      this.ctx.beginPath();
-      path.holeIds.forEach((holeId, idx) => {
-        const hole = this.stateRef.holesById.get(holeId);
-        if (!hole) return;
-        const point = this.worldToScreen(hole.x, hole.y);
-        if (idx === 0) this.ctx.moveTo(point.x, point.y);
-        else this.ctx.lineTo(point.x, point.y);
-      });
-      this.ctx.stroke();
-      this.ctx.restore();
-    }
-  }
-
   drawHoles(showLabels = true, showTiming = true) {
     const preview = this.stateRef.timingResults?.[this.stateRef.ui.activeTimingPreviewIndex] || null;
     const times = preview ? this.stateRef.holes.map((hole) => preview.holeTimes.get(hole.id)).filter((v) => Number.isFinite(v)) : [];
@@ -297,7 +277,6 @@ export class DiagramRenderer {
     this.drawGrid();
     this.drawRelationships();
     this.drawRelationshipDraft();
-    this.drawInitiationLines();
     this.drawHoles();
     this.drawNorthArrow();
     if (this.stateRef.ui.showOverlayText !== false) this.drawTimingPreviewInfo();
