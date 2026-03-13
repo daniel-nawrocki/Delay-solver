@@ -102,6 +102,7 @@ const els = {
   offsetDelayMax: document.getElementById("offsetDelayMaxInput"),
   solveTimingBtn: document.getElementById("solveTimingBtn"),
   timingResults: document.getElementById("timingResults"),
+  timingResultsMenuWrap: document.getElementById("timingResultsMenuWrap"),
   helpBtn: document.getElementById("helpBtn"),
   csvExportBtn: document.getElementById("csvExportBtn"),
   exportPdfBtn: document.getElementById("exportPdfBtn"),
@@ -180,6 +181,16 @@ function initMenuToggles() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeAllMenus();
   });
+}
+
+function openMenu(menuId) {
+  if (!menuId) return;
+  const panel = document.getElementById(menuId);
+  const button = els.menuToggles.find((item) => item.dataset.menuToggle === menuId);
+  if (!panel || !button) return;
+  closeAllMenus();
+  panel.classList.remove("hidden");
+  button.classList.add("active");
 }
 
 function cloneSelectedTiming(selectedTiming) {
@@ -441,6 +452,13 @@ function syncRelationshipVisibilityUi() {
 }
 
 function renderTimingResults() {
+  const hasResults = state.timingResults.length > 0;
+  els.timingResultsMenuWrap.classList.toggle("hidden", !hasResults);
+  if (!hasResults) {
+    const resultsButton = els.menuToggles.find((button) => button.dataset.menuToggle === "timingResultsMenu");
+    document.getElementById("timingResultsMenu")?.classList.add("hidden");
+    resultsButton?.classList.remove("active");
+  }
   if (!state.timingResults.length) {
     els.timingResults.innerHTML = `<div>${state.solverMessage || "Run solver to see best delay combinations."}</div>`;
     return;
@@ -726,6 +744,7 @@ els.solveTimingBtn.addEventListener("click", () => {
   state.ui.activeTimingPreviewIndex = state.timingResults.length ? 0 : -1;
   state.solverMessage = state.timingResults.length ? "" : "No valid timing combinations were produced for the current graph.";
   renderTimingResults();
+  if (state.timingResults.length) openMenu("timingResultsMenu");
   renderer.render();
 });
 
