@@ -24,7 +24,14 @@ export function hydrateStateFromProject(state, project) {
   state.holes = Array.isArray(project.holes) ? project.holes : [];
   state.holesById = new Map(state.holes.map((h) => [h.id, h]));
   state.rows = project.rows || {};
-  state.timing = project.timing || state.timing;
+  state.timing = {
+    ...state.timing,
+    ...(project.timing || {}),
+    offset: {
+      ...state.timing.offset,
+      ...((project.timing && project.timing.offset) || {}),
+    },
+  };
   state.centerPull = project.centerPull || state.centerPull;
   state.selection = new Set();
 }

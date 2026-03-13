@@ -45,6 +45,7 @@ const state = {
   timing: {
     holeToHole: { min: 16, max: 34 },
     rowToRow: { min: 84, max: 142 },
+    offset: { min: 17, max: 42 },
   },
   relationships: { originHoleId: null, edges: [], nextId: 1 },
   csvCache: null,
@@ -81,6 +82,8 @@ const els = {
   holeDelayMax: document.getElementById("holeDelayMaxInput"),
   rowDelayMin: document.getElementById("rowDelayMinInput"),
   rowDelayMax: document.getElementById("rowDelayMaxInput"),
+  offsetDelayMin: document.getElementById("offsetDelayMinInput"),
+  offsetDelayMax: document.getElementById("offsetDelayMaxInput"),
   solveTimingBtn: document.getElementById("solveTimingBtn"),
   timingResults: document.getElementById("timingResults"),
   exportPdfBtn: document.getElementById("exportPdfBtn"),
@@ -212,11 +215,14 @@ function renderRelationshipList() {
   }
   els.relationshipList.innerHTML = state.relationships.edges.map((edge) => {
     const description = describeRelationship(edge, state.holesById);
+    const actions = edge.type === "offset"
+      ? `<button data-rel-action="delete" data-rel-id="${edge.id}">Delete</button>`
+      : `<button data-rel-action="edit" data-rel-id="${edge.id}">Edit</button>
+        <button data-rel-action="delete" data-rel-id="${edge.id}">Delete</button>`;
     return `<div class="relationship-row">
       <div>${description}</div>
       <div class="row-actions">
-        <button data-rel-action="edit" data-rel-id="${edge.id}">Edit</button>
-        <button data-rel-action="delete" data-rel-id="${edge.id}">Delete</button>
+        ${actions}
       </div>
     </div>`;
   }).join("");
@@ -280,25 +286,6 @@ function setToolMode(mode) {
 }
 
 function promptRelationshipConfig(type, existing = null) {
-  if (type === "offset") {
-    const defaultMin = existing?.minOffsetMs ?? existing?.offsetMs ?? 17;
-    const defaultMax = existing?.maxOffsetMs ?? existing?.offsetMs ?? 42;
-    const minInput = window.prompt("Enter minimum offset in milliseconds.", String(defaultMin));
-    if (minInput === null) return null;
-    const maxInput = window.prompt("Enter maximum offset in milliseconds.", String(defaultMax));
-    if (maxInput === null) return null;
-    const minOffsetMs = Number(minInput);
-    const maxOffsetMs = Number(maxInput);
-    if (!Number.isFinite(minOffsetMs) || !Number.isFinite(maxOffsetMs)) {
-      window.alert("Enter valid numeric minimum and maximum offsets.");
-      return null;
-    }
-    return {
-      minOffsetMs: Math.min(minOffsetMs, maxOffsetMs),
-      maxOffsetMs: Math.max(minOffsetMs, maxOffsetMs),
-    };
-  }
-
   const input = window.prompt("Enter relationship sign: + or -", existing?.sign === -1 ? "-" : "+");
   if (input === null) return null;
   const normalized = input.trim().toLowerCase();
@@ -335,13 +322,8 @@ function finalizeOffsetRelationship(toHoleId) {
     renderer.render();
     return;
   }
-  const config = promptRelationshipConfig(draft.type);
   state.ui.relationshipDraft = null;
-  if (!config) {
-    renderer.render();
-    return;
-  }
-  addRelationship(state, { type: draft.type, fromHoleId, toHoleId, ...config });
+  addRelationship(state, { type: draft.type, fromHoleId, toHoleId });
   resetTimingResults();
   fullRefresh();
 }
@@ -403,6 +385,7 @@ function handlePointerUp(payload) {
 }
 
 function editRelationship(edge) {
+  if (edge.type === "offset") return;
   const config = promptRelationshipConfig(edge.type, edge);
   if (!config) return;
   updateRelationship(state, edge.id, config);

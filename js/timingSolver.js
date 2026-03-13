@@ -30,10 +30,9 @@ function edgeDelay(edge, holeDelay, rowDelay, offsetAssignments) {
   return (edge.sign === -1 ? -1 : 1) * holeDelay;
 }
 
-function offsetRangeValues(edge) {
-  const fallback = Number.isFinite(Number(edge.offsetMs)) ? Number(edge.offsetMs) : null;
-  const min = Number.isFinite(Number(edge.minOffsetMs)) ? Number(edge.minOffsetMs) : fallback ?? 17;
-  const max = Number.isFinite(Number(edge.maxOffsetMs)) ? Number(edge.maxOffsetMs) : fallback ?? 42;
+function offsetRangeValues(state) {
+  const min = Number.isFinite(Number(state.timing?.offset?.min)) ? Number(state.timing.offset.min) : 17;
+  const max = Number.isFinite(Number(state.timing?.offset?.max)) ? Number(state.timing.offset.max) : 42;
   return generateValues(Math.min(min, max), Math.max(min, max), 26);
 }
 
@@ -145,7 +144,7 @@ export function solveTimingCombinations(state) {
     }
 
     const edge = offsetEdges[index];
-    const values = offsetRangeValues(edge);
+    const values = offsetRangeValues(state);
     values.forEach((value) => {
       const nextAssignments = new Map(offsetAssignments);
       nextAssignments.set(edge.id, value);
