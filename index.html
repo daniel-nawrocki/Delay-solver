@@ -11,6 +11,20 @@
   <header class="topbar">
     <img class="header-logo" src="assets/large-logo.png" alt="Delay Solver">
     <div class="topbar-actions">
+      <div id="timingVisualizationControls" class="timing-visualization-controls hidden">
+        <div class="timing-visualization-row">
+          <button id="timingVisualizationBtn" type="button">Simulate</button>
+          <label>Speed
+            <select id="timingVisualizationSpeed">
+              <option value="1">Full</option>
+              <option value="0.5">1/2</option>
+              <option value="0.25">1/4</option>
+              <option value="0.125">1/8</option>
+            </select>
+          </label>
+        </div>
+        <div id="timingVisualizationStatus" class="timing-visualization-status">No timing selected</div>
+      </div>
       <button id="helpBtn">Help</button>
       <button id="csvExportBtn">CSV Export</button>
       <button id="exportPdfBtn">Export PDF</button>
@@ -123,20 +137,6 @@
         <section id="timingResultsMenu" class="menu-panel panel hidden">
           <h2>Timing Results</h2>
           <div id="timingResults" class="list"></div>
-          <div id="timingVisualizationControls" class="timing-visualization-controls hidden">
-            <div class="timing-visualization-row">
-              <button id="timingVisualizationBtn" type="button">Simulate</button>
-              <label>Speed
-                <select id="timingVisualizationSpeed">
-                  <option value="1">Full</option>
-                  <option value="0.5">1/2</option>
-                  <option value="0.25">1/4</option>
-                  <option value="0.125">1/8</option>
-                </select>
-              </label>
-            </div>
-            <div id="timingVisualizationStatus" class="timing-visualization-status">No timing selected</div>
-          </div>
         </section>
       </div>
 

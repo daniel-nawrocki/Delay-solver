@@ -28,6 +28,8 @@ const TOOL_TO_SIGN = {
   rowRelationshipNegative: -1,
 };
 
+const TIMING_VISUALIZATION_TAIL_MS = 1000;
+
 const state = {
   holes: [],
   holesById: new Map(),
@@ -408,6 +410,7 @@ function stepTimingVisualization(now) {
   }
 
   const durationMs = Number.isFinite(result.endTime) ? result.endTime : 0;
+  const playbackDurationMs = durationMs + TIMING_VISUALIZATION_TAIL_MS;
   if (durationMs <= 0) {
     playback.elapsedMs = 0;
     stopTimingVisualization({ completed: true });
@@ -415,8 +418,8 @@ function stepTimingVisualization(now) {
   }
 
   playback.elapsedMs = Math.max(0, (now - playback.startTimestamp) * playback.activeSpeedMultiplier);
-  if (playback.elapsedMs >= durationMs) {
-    playback.elapsedMs = durationMs;
+  if (playback.elapsedMs >= playbackDurationMs) {
+    playback.elapsedMs = playbackDurationMs;
     renderer.render();
     stopTimingVisualization({ completed: true, preserveElapsed: true });
     return;
