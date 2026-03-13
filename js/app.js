@@ -40,6 +40,16 @@ const state = {
     coordView: "collar",
     activeTimingPreviewIndex: -1,
     relationshipDraft: null,
+    timingVisualization: {
+      speedMultiplier: 1,
+      activeSpeedMultiplier: 1,
+      isPlaying: false,
+      startTimestamp: 0,
+      elapsedMs: 0,
+      completed: false,
+      resultIndexAtStart: -1,
+      frameRequestId: null,
+    },
   },
   timing: {
     holeToHole: { min: 16, max: 34 },
@@ -103,6 +113,10 @@ const els = {
   solveTimingBtn: document.getElementById("solveTimingBtn"),
   timingResults: document.getElementById("timingResults"),
   timingResultsMenuWrap: document.getElementById("timingResultsMenuWrap"),
+  timingVisualizationControls: document.getElementById("timingVisualizationControls"),
+  timingVisualizationBtn: document.getElementById("timingVisualizationBtn"),
+  timingVisualizationSpeed: document.getElementById("timingVisualizationSpeed"),
+  timingVisualizationStatus: document.getElementById("timingVisualizationStatus"),
   helpBtn: document.getElementById("helpBtn"),
   csvExportBtn: document.getElementById("csvExportBtn"),
   exportPdfBtn: document.getElementById("exportPdfBtn"),
@@ -317,7 +331,124 @@ function exportSelectedTimingCsv() {
   URL.revokeObjectURL(url);
 }
 
+function selectedTimingResult() {
+  return state.timingResults[state.ui.activeTimingPreviewIndex] || null;
+}
+
+function timingVisualizationState() {
+  return state.ui.timingVisualization;
+}
+
+function resetTimingVisualization({ preserveSpeed = true } = {}) {
+  const playback = timingVisualizationState();
+  if (playback.frameRequestId) cancelAnimationFrame(playback.frameRequestId);
+  const speedMultiplier = preserveSpeed ? playback.speedMultiplier : 1;
+  playback.speedMultiplier = speedMultiplier;
+  playback.activeSpeedMultiplier = speedMultiplier;
+  playback.isPlaying = false;
+  playback.startTimestamp = 0;
+  playback.elapsedMs = 0;
+  playback.completed = false;
+  playback.resultIndexAtStart = -1;
+  playback.frameRequestId = null;
+}
+
+function stopTimingVisualization({ completed = false, preserveElapsed = false } = {}) {
+  const playback = timingVisualizationState();
+  if (playback.frameRequestId) cancelAnimationFrame(playback.frameRequestId);
+  playback.frameRequestId = null;
+  playback.isPlaying = false;
+  playback.startTimestamp = 0;
+  playback.completed = completed;
+  playback.resultIndexAtStart = -1;
+  if (!preserveElapsed) playback.elapsedMs = 0;
+  renderTimingVisualizationControls();
+  renderer.render();
+}
+
+function renderTimingVisualizationControls() {
+  const hasResults = state.timingResults.length > 0;
+  const playback = timingVisualizationState();
+  const hasSelectedTiming = Boolean(selectedTimingResult());
+
+  if (els.timingVisualizationControls) {
+    els.timingVisualizationControls.classList.toggle("hidden", !hasResults);
+  }
+  if (!hasResults) return;
+
+  els.timingVisualizationSpeed.value = String(playback.speedMultiplier);
+  els.timingVisualizationBtn.disabled = !hasSelectedTiming || playback.isPlaying;
+
+  if (playback.isPlaying) {
+    els.timingVisualizationBtn.textContent = "Playing...";
+    els.timingVisualizationStatus.textContent = "Playing";
+    return;
+  }
+
+  els.timingVisualizationBtn.textContent = playback.completed || playback.elapsedMs > 0 ? "Replay" : "Simulate";
+  if (!hasSelectedTiming) {
+    els.timingVisualizationStatus.textContent = "No timing selected";
+  } else if (playback.completed) {
+    els.timingVisualizationStatus.textContent = "Complete";
+  } else if (playback.elapsedMs > 0) {
+    els.timingVisualizationStatus.textContent = "Ready to replay";
+  } else {
+    els.timingVisualizationStatus.textContent = "Ready";
+  }
+}
+
+function stepTimingVisualization(now) {
+  const playback = timingVisualizationState();
+  if (!playback.isPlaying) return;
+
+  const result = state.timingResults[playback.resultIndexAtStart] || null;
+  if (!result || state.ui.activeTimingPreviewIndex !== playback.resultIndexAtStart) {
+    stopTimingVisualization();
+    return;
+  }
+
+  const durationMs = Number.isFinite(result.endTime) ? result.endTime : 0;
+  if (durationMs <= 0) {
+    playback.elapsedMs = 0;
+    stopTimingVisualization({ completed: true });
+    return;
+  }
+
+  playback.elapsedMs = Math.max(0, (now - playback.startTimestamp) * playback.activeSpeedMultiplier);
+  if (playback.elapsedMs >= durationMs) {
+    playback.elapsedMs = durationMs;
+    renderer.render();
+    stopTimingVisualization({ completed: true, preserveElapsed: true });
+    return;
+  }
+
+  renderer.render();
+  playback.frameRequestId = requestAnimationFrame(stepTimingVisualization);
+}
+
+function startTimingVisualization() {
+  const result = selectedTimingResult();
+  if (!result) {
+    renderTimingVisualizationControls();
+    return;
+  }
+
+  const playback = timingVisualizationState();
+  if (playback.frameRequestId) cancelAnimationFrame(playback.frameRequestId);
+  playback.activeSpeedMultiplier = playback.speedMultiplier;
+  playback.isPlaying = true;
+  playback.startTimestamp = performance.now();
+  playback.elapsedMs = 0;
+  playback.completed = false;
+  playback.resultIndexAtStart = state.ui.activeTimingPreviewIndex;
+  playback.frameRequestId = null;
+  renderTimingVisualizationControls();
+  renderer.render();
+  playback.frameRequestId = requestAnimationFrame(stepTimingVisualization);
+}
+
 function resetTimingResults(message = "") {
+  resetTimingVisualization();
   state.timingResults = [];
   state.ui.activeTimingPreviewIndex = -1;
   state.solverMessage = message;
@@ -454,12 +585,14 @@ function renderTimingResults() {
   }
   if (!state.timingResults.length) {
     els.timingResults.innerHTML = `<div>${state.solverMessage || "Run solver to see best delay combinations."}</div>`;
+    renderTimingVisualizationControls();
     return;
   }
   els.timingResults.innerHTML = state.timingResults.map((result, index) => {
     const active = index === state.ui.activeTimingPreviewIndex ? "active" : "";
     return `<button class="timing-item ${active}" data-timing-index="${index}">${formatTimingResult(result, index)}</button>`;
   }).join("");
+  renderTimingVisualizationControls();
 }
 
 function fullRefresh({ fit = false } = {}) {
@@ -727,6 +860,7 @@ els.relationshipList.addEventListener("click", (event) => {
 });
 
 els.solveTimingBtn.addEventListener("click", () => {
+  resetTimingVisualization();
   const validation = validateTimingGraph(state);
   if (!validation.valid) {
     resetTimingResults(validation.reason);
@@ -746,9 +880,20 @@ els.timingResults.addEventListener("click", (event) => {
   if (!target) return;
   const index = Number(target.getAttribute("data-timing-index"));
   if (!Number.isFinite(index)) return;
+  resetTimingVisualization();
   state.ui.activeTimingPreviewIndex = index;
   renderTimingResults();
   renderer.render();
+});
+
+els.timingVisualizationBtn.addEventListener("click", () => {
+  startTimingVisualization();
+});
+
+els.timingVisualizationSpeed.addEventListener("change", () => {
+  const speedMultiplier = Number(els.timingVisualizationSpeed.value);
+  timingVisualizationState().speedMultiplier = Number.isFinite(speedMultiplier) && speedMultiplier > 0 ? speedMultiplier : 1;
+  renderTimingVisualizationControls();
 });
 
 els.exportPdfBtn.addEventListener("click", () => {

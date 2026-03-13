@@ -223,6 +223,44 @@ button:active {
   color: var(--accent-ink);
 }
 
+.timing-visualization-controls {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid rgba(159, 179, 201, 0.35);
+}
+
+.timing-visualization-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.timing-visualization-row button {
+  flex: 0 0 auto;
+}
+
+.timing-visualization-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.timing-visualization-row select {
+  min-width: 84px;
+}
+
+.timing-visualization-status {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--accent-ink);
+}
+
 .hidden { display: none !important; }
 
 .canvas-wrap {

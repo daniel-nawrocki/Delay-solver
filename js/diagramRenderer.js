@@ -52,6 +52,14 @@ export class DiagramRenderer {
     return Number(this.stateRef?.ui?.textScale) || 1;
   }
 
+  activeTimingPreview() {
+    return this.stateRef.timingResults?.[this.stateRef.ui.activeTimingPreviewIndex] || null;
+  }
+
+  timingVisualization() {
+    return this.stateRef?.ui?.timingVisualization || null;
+  }
+
   rotatePoint(x, y) {
     const theta = (this.rotationDeg * Math.PI) / 180;
     const c = Math.cos(theta);
@@ -213,8 +221,7 @@ export class DiagramRenderer {
     this.ctx.restore();
   }
 
-  drawHoles(showLabels = true, showTiming = true) {
-    const preview = this.stateRef.timingResults?.[this.stateRef.ui.activeTimingPreviewIndex] || null;
+  drawHoles(preview, showLabels = true, showTiming = true) {
     const times = preview ? this.stateRef.holes.map((hole) => preview.holeTimes.get(hole.id)).filter((v) => Number.isFinite(v)) : [];
     const minT = times.length ? Math.min(...times) : 0;
     const maxT = times.length ? Math.max(...times) : 0;
@@ -257,14 +264,49 @@ export class DiagramRenderer {
     }
   }
 
+  drawTimingVisualization(preview) {
+    const playback = this.timingVisualization();
+    if (!preview || !playback?.isPlaying) return;
+    if (playback.resultIndexAtStart !== this.stateRef.ui.activeTimingPreviewIndex) return;
+    const elapsedMs = Number(playback.elapsedMs);
+    if (!Number.isFinite(elapsedMs)) return;
+
+    const pulseWindowMs = 120;
+    this.ctx.save();
+    for (const hole of this.stateRef.holes) {
+      const holeTime = preview.holeTimes.get(hole.id);
+      if (!Number.isFinite(holeTime)) continue;
+      const delta = elapsedMs - holeTime;
+      if (delta < 0 || delta > pulseWindowMs) continue;
+
+      const point = this.worldToScreen(hole.x, hole.y);
+      const progress = delta / pulseWindowMs;
+      const alpha = 1 - progress;
+      const ringRadius = this.holeRadius + 6 + (progress * 18);
+
+      this.ctx.globalAlpha = 0.42 * alpha;
+      this.ctx.fillStyle = "#f59e0b";
+      this.ctx.beginPath();
+      this.ctx.arc(point.x, point.y, this.holeRadius + 2 + (progress * 8), 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.globalAlpha = 0.95 * alpha;
+      this.ctx.strokeStyle = "#f97316";
+      this.ctx.lineWidth = 3;
+      this.ctx.beginPath();
+      this.ctx.arc(point.x, point.y, ringRadius, 0, Math.PI * 2);
+      this.ctx.stroke();
+    }
+    this.ctx.restore();
+  }
+
   clear() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.fillStyle = "#ffffff";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  drawTimingPreviewInfo() {
-    const preview = this.stateRef.timingResults?.[this.stateRef.ui.activeTimingPreviewIndex] || null;
+  drawTimingPreviewInfo(preview) {
     if (!preview) return;
     const topOverlayOffset = 92;
     this.ctx.save();
@@ -279,13 +321,15 @@ export class DiagramRenderer {
   }
 
   render() {
+    const preview = this.activeTimingPreview();
     this.clear();
     this.drawGrid();
     this.drawRelationships();
     this.drawRelationshipDraft();
-    this.drawHoles();
+    this.drawHoles(preview);
+    this.drawTimingVisualization(preview);
     this.drawNorthArrow();
-    if (this.stateRef.ui.showOverlayText !== false) this.drawTimingPreviewInfo();
+    if (this.stateRef.ui.showOverlayText !== false) this.drawTimingPreviewInfo(preview);
   }
 
   rotateBy(deltaDeg) {
