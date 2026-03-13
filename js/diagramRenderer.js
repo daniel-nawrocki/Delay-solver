@@ -266,13 +266,14 @@ export class DiagramRenderer {
   drawTimingPreviewInfo() {
     const preview = this.stateRef.timingResults?.[this.stateRef.ui.activeTimingPreviewIndex] || null;
     if (!preview) return;
+    const topOverlayOffset = 92;
     this.ctx.save();
     this.ctx.fillStyle = "#0f172a";
     this.ctx.font = `${Math.max(10, Math.round(12 * this.textScale()))}px Segoe UI`;
     this.ctx.fillText(
       `Timing Preview: H2H ${preview.holeDelay}ms | R2R ${preview.rowDelay}ms | Peak(8ms): ${preview.density8ms}`,
       14,
-      40
+      topOverlayOffset
     );
     this.ctx.restore();
   }
