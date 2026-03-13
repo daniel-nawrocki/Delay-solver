@@ -53,6 +53,13 @@ body {
   text-transform: uppercase;
 }
 
+.header-logo {
+  display: block;
+  height: 42px;
+  width: auto;
+  object-fit: contain;
+}
+
 .topbar-actions {
   display: flex;
   gap: var(--space-2);
